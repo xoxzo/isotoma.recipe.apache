@@ -28,7 +28,7 @@ except ImportError:
 
 import missingbits
 
-import htpasswd
+from . import htpasswd
 
 def sibpath(filename):
     return os.path.join(os.path.dirname(__file__), 'templates', filename)
@@ -70,7 +70,7 @@ class ApacheBase(object):
         options.setdefault("indexes", "off")
 
         # Record a SHA1 of the template we use, so we can detect changes in subsequent runs
-        self.options["__hashes_template"] = sha1(open(self.options["template"]).read()).hexdigest()
+        self.options["__hashes_template"] = sha1(open(self.options["template"]).read().encode('utf8')).hexdigest()
 
         # Prod the filter if we have one, to fix dependency graph
         # Look into some better way of doing this after jinja2 refactor
@@ -151,12 +151,12 @@ class ApacheBase(object):
 
         '''
         protected = []
-        if self.options.has_key('protected'):
+        if 'protected' in self.options:
             for l in self.options['protected'].strip().split("\n"):
                 l = l.strip()
                 protected.append(dict(
-                    zip(['uri', 'name', 'username', 'password'],
-                        l.split(":"))
+                    list(zip(['uri', 'name', 'username', 'password'],
+                        l.split(":")))
                 ))
 
         return protected
@@ -199,9 +199,9 @@ class ApacheBase(object):
             if not line:
                 continue
             rewrites.append(
-                dict(zip(
+                dict(list(zip(
                     ['source', 'destination', 'flags'], line.split(";")
-                    ))
+                    )))
                  )
         return rewrites
 
@@ -211,13 +211,13 @@ class ApacheBase(object):
             line = line.strip()
             if not line:
                 continue
-            static_aliases.append(dict(zip(('location', 'path'), line.split(":"))))
+            static_aliases.append(dict(list(zip(('location', 'path'), line.split(":")))))
 
         return static_aliases
 
     def get_common_options(self):
         opt = self.options.copy()
-        opt = dict(opt.items() + self.configure_ssl().items())
+        opt = dict(list(opt.items()) + list(self.configure_ssl().items()))
 
         for key in ("aliases", "redirects", "allowips"):
             if key in self.options:
@@ -313,7 +313,7 @@ class ApacheWSGI(ApacheBase):
 
         opt['static_aliases'] = self.configure_static_aliases()
 
-        opt = dict(opt.items() + self.configure_ssl().items())
+        opt = dict(list(opt.items()) + list(self.configure_ssl().items()))
 
         if opt.get('ldapserver', ''):
             # include the ldap config
@@ -411,10 +411,10 @@ class Redirect(ApacheBase):
         for line in self.options['redirects'].strip().split("\n"):
             line = line.strip()
             opt['redirects'].append(
-                dict(zip(['domain', 'redirect', 'params'],
-                         line.split(";"))
+                dict(list(zip(['domain', 'redirect', 'params'],
+                         line.split(";")))
                     ))
-            if len(opt['redirects']) >= 1 and opt['redirects'][0].has_key('params'):
+            if len(opt['redirects']) >= 1 and 'params' in opt['redirects'][0]:
                  opt['redirectparams'] = opt['redirects'][0]['params']
         self.write_jinja_config(opt)
 
@@ -464,7 +464,7 @@ class SinglePage(ApacheBase):
 
 
         # this can't be missing, but it can be empty
-        if not opt.has_key('listen'):
+        if 'listen' not in opt:
             opt['listen'] = ''
 
         # we might need to listen on multiple interfaces (if the whole lot has gone down)
@@ -474,7 +474,7 @@ class SinglePage(ApacheBase):
             if not line:
                 continue
             opt['interfaces'].append(
-                dict(zip(('interface', 'port', 'servername', 'ssl'), line.split(":"))
+                dict(list(zip(('interface', 'port', 'servername', 'ssl'), line.split(":")))
                 ))
 
         opt['sslca'] = [x.strip() for x in opt.get("sslca", "").strip().split()]
@@ -500,7 +500,7 @@ class Ldap(ApacheBase):
             os.makedirs(outputdir)
             
         opt = self.options.copy()
-        print self.default_template
+        print(self.default_template)
         self.write_jinja_config(opt)  
 
         return [outputdir]
